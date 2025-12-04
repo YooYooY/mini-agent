@@ -1,76 +1,59 @@
 from pathlib import Path
 from typing import List
-from langchain_community.document_loaders import PyPDFLoader
 from langchain.schema import Document
+from langchain_community.document_loaders import PyPDFLoader
 
-from paddleocr import PaddleOCR
+import pytesseract
+import pdf2image
 
-from src.core.config import (
-    OCR_LANG,
-    OCR_USE_ANGLE,
-)
+from src.core.config import TESSERACT_CMD
 
 
 class PDFParser:
     """
-    自动解析 PDF（文字版 + 扫描版）
-    文字版：PyPDFLoader
-    扫描版：PaddleOCR（自动 fallback）
+    PDF 文档解析器
+    - 先用 PyPDFLoader（文字版 PDF）
+    - 不行则 fallback 到 Tesseract OCR（扫描版 PDF）
     """
 
     def __init__(self):
-        # M1/M2/M3 自动开启 accelerated
-        # lang='ch' 用于解析中文 PDF
-        self.ocr = PaddleOCR(use_angle_cls=OCR_USE_ANGLE, lang=OCR_LANG)
+        # pytesseract 会自动使用本机的 tesseract
+        pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
     def parse(self, file_path: Path) -> List[Document]:
-        """
-        统一解析 API：
-        - 文本 PDF → PyPDFLoader
-        - 扫描 PDF → OCR fallback
-        返回 Document 列表
-        """
+        # 1) 尝试用 PyPDFLoader
         docs = self._try_load_text_pdf(file_path)
-
         if docs:
             return docs
 
-        # fallback to OCR
+        # 2) fallback 到 OCR
         return self._ocr_pdf(file_path)
 
-    # ----------------------
-    # 内部方法：PyPDFLoader
-    # ----------------------
-    def _try_load_text_pdf(self, file_path: Path) -> List[Document]:
+    def _try_load_text_pdf(self, file_path: Path):
         try:
             loader = PyPDFLoader(str(file_path))
             docs = loader.load()
 
-            # docs 可能不是空，但 page_content 全是空白 → 识别为扫描 PDF
             if any(d.page_content.strip() for d in docs):
                 print("使用 PyPDFLoader（文字版 PDF）")
                 return docs
 
-            print("PyPDFLoader 解析失败（可能是扫描 PDF）")
             return []
         except:
             return []
 
-    # ----------------------
-    # 内部方法：OCR 模式
-    # ----------------------
     def _ocr_pdf(self, file_path: Path) -> List[Document]:
-        print("使用 PaddleOCR 解析扫描 PDF...")
+        print("使用 Tesseract OCR 解析扫描 PDF...")
 
-        results = self.ocr.ocr(str(file_path))
+        pages = pdf2image.convert_from_path(str(file_path))
+        full_text = ""
 
-        extracted_text = ""
-        for page in results:
-            for line in page:
-                text = line[1][0]  # paddles 的文字内容
-                extracted_text += text + "\n"
+        for img in pages:
+            # OCR 识别中文需要指定语言 chi_sim
+            text = pytesseract.image_to_string(img, lang="chi_sim")
+            full_text += text + "\n"
 
-        if not extracted_text.strip():
-            raise ValueError("OCR 解析失败：PDF 内无可识别文字")
+        if not full_text.strip():
+            raise ValueError("OCR 未识别到有效文本")
 
-        return [Document(page_content=extracted_text)]
+        return [Document(page_content=full_text)]

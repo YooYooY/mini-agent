@@ -38,5 +38,4 @@ CHAT_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 # ---------------------------
 # OCR 配置
 # ---------------------------
-OCR_LANG = "ch"
-OCR_USE_ANGLE = True
+TESSERACT_CMD = "/usr/local/bin/tesseract"
