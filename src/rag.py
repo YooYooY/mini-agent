@@ -21,3 +21,6 @@ def build_retriever():
     )
 
     return vectorstore.as_retriever(search_kwargs={"k": 2})
+
+
+retriever = build_retriever()
