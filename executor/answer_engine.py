@@ -67,29 +67,16 @@ Instructions:
     return compressed
 
 
-def generate_answer(
+def build_answer_prompt(
     user_query: str,
     intent: str,
     compressed_evidence: str,
     hits: List[Dict],
 ) -> str:
-    """
-    使用压缩过的 evidence 生成最终给用户的答案：
-    - 主体回答
-    - 附带“参考文档列表”（人类可读）
-    """
-    # 如果没有有效证据，给一个诚实的、可被 critic 识别的回答
-    if not hits or not compressed_evidence or "无有效证据" in compressed_evidence:
-        return (
-            f"目前在已索引的文档中，没有找到能直接回答「{user_query}」的可靠内容。\n"
-            "建议：\n"
-            "1. 检查知识库是否已经收录相关接口或文档；\n"
-            "2. 补充上传与该问题直接相关的接口说明 / 设计文档；\n"
-            "3. 再次尝试提问。"
-        )
 
     evidence_refs = []
     seen = set()
+
     for h in hits[:5]:
         key = (h.get("doc_id"), h.get("title"))
         if key in seen:
@@ -97,37 +84,39 @@ def generate_answer(
         seen.add(key)
         evidence_refs.append(f"- 《{h.get('title')}》 (id: {h.get('doc_id')})")
 
-    refs_block = "\n".join(evidence_refs)
+    refs_block = "\n".join(evidence_refs) if evidence_refs else "（无文档引用）"
 
-    prompt = f"""
-你是一个 API 文档助手，负责基于「提供的证据」回答用户问题。
+    return f"""
+你是一个 AskMyDocs 文档问答助手。
+
+请仅基于提供的证据信息回答问题，
+如果证据不足，请给出温和、可靠、无幻觉的回答。
 
 【用户问题】
 {user_query}
 
-【任务意图】
+【任务类型】
 {intent}
 
-【经过筛选和压缩后的证据】
+【压缩后的证据信息】
 {compressed_evidence}
 
-要求：
-- 必须严格基于上面的“证据”回答，不要凭空编造接口或字段。
-- 回答语言使用简体中文。
-- 结构清晰，适合给前端 / 后端工程师直接使用。
-- 如果证据中缺少关键细节，请明确指出“文档中未给出 xxx 信息”。
+【检索命中文档参考】
+{refs_block}
 
-请给出最终回答。
+请输出最终回答内容。
 """
 
-    resp = llm.invoke(prompt)
-    answer_main = resp.content.strip()
 
-    full_answer = (
-        f"{answer_main}\n\n"
-        "———\n"
-        "参考文档：\n"
-        f"{refs_block}"
-    )
-
-    return full_answer
+def generate_answer_stream(llm, prompt: str):
+    """
+    负责：
+    - 调用 llm.stream(prompt)
+    - 按 token 输出
+    - 不负责拼接最终答案
+    """
+    for delta in llm.stream(prompt):
+        token = delta.content or ""
+        if not token:
+            continue
+        yield token
