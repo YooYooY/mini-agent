@@ -21,8 +21,6 @@ def executor_node(state: TaskState) -> TaskState:
         hits=hits,
     )
 
-    print("compressed_evidence=>", compressed_evidence)
-
     # 2) 基于压缩后的 evidence 生成最终回答
     answer = generate_answer(
         user_query=user_query,

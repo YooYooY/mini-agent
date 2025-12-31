@@ -14,8 +14,6 @@ def planner_node(state: TaskState, *, config) -> TaskState:
 
     intent_context = detect_intent(user_query)
 
-    print("intent_context=>", intent_context)
-
     task_memory["intent_context"] = intent_context
     state["intent_context"] = intent_context
 

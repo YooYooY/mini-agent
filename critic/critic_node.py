@@ -35,15 +35,12 @@ def critic_node(state: TaskState, *, config) -> TaskState:
         llm=llm,
     )
 
-    print("semantic_result=>", semantic_result)
-
     # --- Stage 2: Map to agent policy ---
     critic_result = map_critic_policy(
         semantic_result=semantic_result,
         critic_count=critic_count,
     )
-    print("critic_result=>", critic_result)
-
+    
     task_memory["critic_result"] = critic_result
     state["critic_result"] = critic_result
 

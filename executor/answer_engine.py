@@ -1,10 +1,12 @@
 from typing import List, Dict
 from langchain_openai import ChatOpenAI
 
+
 llm = ChatOpenAI(
     model="gpt-4.1-mini",
     temperature=0.2,
 )
+
 
 def _format_evidence_for_llm(hits: List[Dict]) -> str:
     """
@@ -121,6 +123,11 @@ def generate_answer(
     resp = llm.invoke(prompt)
     answer_main = resp.content.strip()
 
-    full_answer = f"{answer_main}\n\n" "———\n" "参考文档：\n" f"{refs_block}"
+    full_answer = (
+        f"{answer_main}\n\n"
+        "———\n"
+        "参考文档：\n"
+        f"{refs_block}"
+    )
 
     return full_answer

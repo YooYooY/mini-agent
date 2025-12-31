@@ -16,10 +16,7 @@ def retriever_node(state: TaskState) -> TaskState:
 
     # --- 2) 根据 critic 结果动态调整 top_k ---
     top_k = DEFAULT_TOP_K + round
-    print("query=>", query)
     hits = _rerank_hits(query,  vector_index.search(query, k=top_k))
-
-    print("hits=>", hits)
 
     task_memory["retrieval_context"]["retriever_hits"] = hits
     state["retrieval_context"] = rc
